@@ -1,10 +1,12 @@
 package com.iflytek.app.func;
 
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.iflytek.bean.TableProcess;
 import com.iflytek.common.GmallConfig;
 import org.apache.flink.api.common.state.BroadcastState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
+import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.util.Collector;
@@ -13,6 +15,10 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Aaron
@@ -20,18 +26,16 @@ import java.sql.SQLException;
  */
 
 public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, String, JSONObject> {
-    private MapStateDescriptor<String, TableProcess> mapStateDescriptor;
+    private MapStateDescriptor<String, TableProcess> stateDescriptor;
     private Connection connection;
 
-    public TableProcessFunction(MapStateDescriptor<String, TableProcess> mapStateDescriptor) {
-        this.mapStateDescriptor = mapStateDescriptor;
+    public TableProcessFunction(MapStateDescriptor<String, TableProcess> stateDescriptor) {
+        this.stateDescriptor = stateDescriptor;
     }
 
-    // 在open中获取与phoenix的连接
     @Override
-    public void open(Configuration parameters) throws SQLException {
+    public void open(Configuration parameters) throws Exception {
         connection = DriverManager.getConnection(GmallConfig.PHOENIX_SERVER);
-
     }
 
     /**
@@ -51,28 +55,33 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
     public void processBroadcastElement(String value, BroadcastProcessFunction<JSONObject, String, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
 
         // value数据示例（value的数据来自FlinkCDC）:
-        // { "before":null,
-        //   "after":{"id":1,"tm_name":"三星","logo_url":"/static/default.jpg"},
-        //   "source":{"version":"1.5.4.Final","connector":"mysql","name":"mysql_binlog_source","ts_ms":1649744439676,
-        //             "snapshot":"false","db":"gamll","sequence":null,"table":"base_trademark","server_id":0,"gtid":null
-        //             "file":"","pos":0,"row":0,"thread":null,"query":null},
-        //   "op":"r",
-        //   "ts_ms":1649744439678,
-        //   "transaction":null
+        // {"before":null,
+        //  "after":{"source_table":"nn",
+        //           "sink_table":"qweq",
+        //           "sink_columns":"wqeqwe",
+        //           "sink_pk":"qweq",
+        //           "sink_extend":"qwewqe"},
+        //  "source":{"version":"1.5.2.Final","connector":"mysql","name":"mysql_binlog_source","ts_ms":1655696167000,
+        //            "snapshot":"false","db":"gmall-config","sequence":null,"table":"table_process","server_id":1,"gtid":null,
+        //            "file":"mysql-bin.000001","pos":2089,"row":0,"thread":null,"query":null},
+        //  "op":"c",
+        //  "ts_ms":1655696164292,
+        //  "transaction":null
         // }
 
         // TODO 1、获取并解析数据为JavaBean对象
-        JSONObject jsonObject = JSONObject.parseObject(value);
-        TableProcess tableProcess = JSONObject.parseObject(jsonObject.getString("after"), TableProcess.class);
+        JSONObject jsonObject = JSON.parseObject(value);
+        TableProcess tableProcess = JSON.parseObject(jsonObject.getString("after"), TableProcess.class);
 
         // TODO 2、校验表是否存在，如果不存在则建表
         // (表名,字段名,主键,建表扩展字段)
-        checkTable(tableProcess.getSinkTable(), tableProcess.getSinkColumns(), tableProcess.getSinkPk(), tableProcess.getSinkExtend());
-
+        checkTable(tableProcess.getSinkTable(),
+                tableProcess.getSinkColumns(),
+                tableProcess.getSinkPk(),
+                tableProcess.getSinkExtend());
         // TODO 3、将数据写入状态，广播出去
         String key = tableProcess.getSourceTable();
-        // 获取广播状态
-        BroadcastState<String, TableProcess> broadcastState = ctx.getBroadcastState(mapStateDescriptor);
+        BroadcastState<String, TableProcess> broadcastState = ctx.getBroadcastState(stateDescriptor);
         broadcastState.put(key, tableProcess);
     }
 
@@ -87,8 +96,9 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
      */
     private void checkTable(String sinkTable, String sinkColumns, String sinkPk, String sinkExtend) {
         PreparedStatement preparedStatement = null;
+
         try {
-            // 处理字段
+            //处理字段
             if (sinkPk == null || sinkPk.equals("")) {
                 sinkPk = "id";
             }
@@ -96,51 +106,44 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
                 sinkExtend = "";
             }
 
-            // 拼接SQL !!!!注意空格!!!!
-            // create table if not exists db.tn(
             StringBuilder sql = new StringBuilder("create table if not exists ")
                     .append(GmallConfig.HBASE_SCHEMA)
                     .append(".")
                     .append(sinkTable)
                     .append("(");
 
-            // (id varchar primary key, name varchar,...)
             String[] columns = sinkColumns.split(",");
             for (int i = 0; i < columns.length; i++) {
-                // 获取字段
+
+                //获取字段
                 String column = columns[i];
-                // 判断是否为主键字段,主键字段要加primary key
-                if (column.equals(sinkPk)) {
+
+                //判断是否为主键字段
+                if (sinkPk.equals(column)) {
                     sql.append(column).append(" varchar primary key");
                 } else {
                     sql.append(column).append(" varchar");
                 }
-                // 判断是否不是最后一个字段，不是最后一个字段要拼接逗号
+
+                //不是最后一个字段,则添加","
                 if (i < columns.length - 1) {
-                    // 不是最后一个字段，拼接逗号
                     sql.append(",");
-                } else {
-                    sql.append(") ");
                 }
             }
 
-            // 检验sql
+            sql.append(")").append(sinkExtend);
+
             System.out.println(sql);
 
-            // 预编译sql
-
+            //预编译SQL
             preparedStatement = connection.prepareStatement(sql.toString());
 
-            // 执行
+            //执行
             preparedStatement.execute();
-
-            // 资源释放
-            preparedStatement.close();
         } catch (SQLException e) {
-            // 如果建表失败，那么后续在执行也没什么意义，这时候就要关闭程序，报异常
-            throw new RuntimeException("建表 " + sinkTable + " 失败！");
+            throw new RuntimeException("建表" + sinkTable + "失败！");
         } finally {
-            // 资源释放
+            //资源释放
             if (preparedStatement != null) {
                 try {
                     preparedStatement.close();
@@ -152,25 +155,81 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
     }
 
     /**
-     * 主流
+     * 主数据流
      * 1、获取广播的配置数据（按照表名过滤）
      * 2、根据配置信息中sinkColumns字段过滤
      * 3、补充SinkTable字段输出
      *
      * @param value The stream element.
-     * @param ctx A {@link ReadOnlyContext} that allows querying the timestamp of the element,
-     *     querying the current processing/event time and updating the broadcast state. The context
-     *     is only valid during the invocation of this method, do not store it.
-     * @param out The collector to emit resulting elements to
+     * @param ctx   A {@link ReadOnlyContext} that allows querying the timestamp of the element,
+     *              querying the current processing/event time and updating the broadcast state. The context
+     *              is only valid during the invocation of this method, do not store it.
+     * @param out   The collector to emit resulting elements to
      * @throws Exception
      */
     @Override
     public void processElement(JSONObject value, BroadcastProcessFunction<JSONObject, String, JSONObject>.ReadOnlyContext ctx, Collector<JSONObject> out) throws Exception {
 
+        // 广播变量中的数据示例
+        // "表名":"TableProcess"
+
+        // value 中数据的格式(数据来自Kafka，由Kafka的上游maxwell封装)
+        //{"database":"gmall",
+        // "table":"comment_info",
+        // "type":"insert",
+        // "ts":1592218584,
+        // "xid":13989,
+        // "commit":true,
+        // "data":{"id":1538475781186916369,"user_id":172,"nick_name":null,"head_img":null,"sku_id":17,"spu_id":5,"order_id":5492,"appraise":"1201","comment_txt":"评论内容：58714193948455936187455631146252513178693575144261","create_time":"2020-06-15 18:56:24","operate_time":null}
+        // }
         // TODO 1、获取广播的配置数据（按照表名过滤）
+        ReadOnlyBroadcastState<String, TableProcess> broadcastState = ctx.getBroadcastState(stateDescriptor);
+        // 取出这个消息对应的表 所对应的 广播流 中的 value：tableProcess
+        TableProcess tableProcess = broadcastState.get(value.getString("table"));
+        // 取出这个消息对应的消息类型
+        String type = value.getString("type");
+        // 由于主流中的数据为全部的业务数据，但是广播流中的数据只有维表数据，所以可能 tableProcess 可能为null！！！
+        // 如果为null，将其过滤掉，舍弃，达到过滤目的
+        // 另外删除数据的操作不需要，因为在mysql中删除的数据在以后在维度建模的时候肯定关联不到这个维度，所以不需要收集删除记录
+        if (tableProcess != null && ("bootstrap-insert".equals(type) || "insert".equals(type) || "update".equals(type))) {
 
-        // TODO 2、根据配置信息中sinkColumns字段过滤
+            // TODO 2、根据配置信息中 sinkColumns 字段过滤
+            // 过滤掉不需要的字段，需要的字段在 sinkColumns 中,所以 filter 字段需要两个参数
+            // 1、原始数据，value.data
+            // 2、需要的字段，tableProcess.sinkColumns
+            filter(value.getJSONObject("data"), tableProcess.getSinkColumns());
 
-        // TODO 3、补充SinkTable字段输出
+            // TODO 3、补充 SinkTable 字段输出
+            // 要将数据写到phoenix中，要根据这个字段找到要写的phoenix表
+            value.put("sinkTable", tableProcess.getSinkTable());
+            out.collect(value);
+
+        } else {
+            // 不是我们需要的数据，过滤掉
+            System.out.println("过滤掉：" + value);
+        }
+    }
+
+    /**
+     * 过滤数据
+     *
+     * @param data          {"id":1,"tm_name","logo_url":"..."}
+     * @param sinkColumns   id,tm_name
+     * 数据过滤处理后          {"id":1,"tm_name"}
+     */
+    private void filter(JSONObject data, String sinkColumns) {
+        // Iterator<Map.Entry<String, Object>> iterator = data.entrySet().iterator();
+
+        String[] split = sinkColumns.split(",");
+        List<String> columnsList = Arrays.asList(split);
+
+        /*while (iterator.hasNext()){
+            Map.Entry<String, Object> next = iterator.next();
+            if (!columns.contains(next.getKey())){
+                iterator.remove();
+            }
+        }*/
+        data.entrySet().removeIf(next -> !columnsList.contains(next.getKey()));
+
     }
 }
