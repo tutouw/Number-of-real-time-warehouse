@@ -4,21 +4,20 @@ import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.iflytek.bean.TableProcess;
 import com.iflytek.common.GmallConfig;
+import lombok.SneakyThrows;
+import org.apache.flink.api.common.functions.BroadcastVariableInitializer;
+import org.apache.flink.api.common.functions.RuntimeContext;
 import org.apache.flink.api.common.state.BroadcastState;
+import org.apache.flink.api.common.state.MapState;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.ReadOnlyBroadcastState;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.co.BroadcastProcessFunction;
 import org.apache.flink.util.Collector;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.sql.*;
+import java.util.*;
+import java.util.function.Predicate;
 
 /**
  * @author Aaron
@@ -27,15 +26,45 @@ import java.util.Map;
 
 public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, String, JSONObject> {
     private MapStateDescriptor<String, TableProcess> stateDescriptor;
+    private HashMap<String, TableProcess> initTable = new HashMap<>();
     private Connection connection;
 
-    public TableProcessFunction(MapStateDescriptor<String, TableProcess> stateDescriptor) {
+    public TableProcessFunction(MapStateDescriptor<String, TableProcess> stateDescriptor) throws Exception {
         this.stateDescriptor = stateDescriptor;
+
     }
+
 
     @Override
     public void open(Configuration parameters) throws Exception {
+        // Class.forName("org.apache.phoenix.jdbc.PhoenixDriver");
         connection = DriverManager.getConnection(GmallConfig.PHOENIX_SERVER);
+
+
+        // 查询mysql中的数据
+        // Class.forName("com.mysql.jdbc.Driver");
+        Connection mysqlConnection = DriverManager.getConnection("jdbc:mysql://hadoop101:3306/gmall-config?useSSL=false", "root", "123456");
+        PreparedStatement preparedStatement = mysqlConnection.prepareStatement("select * from table_process");
+        preparedStatement.execute();
+        ResultSet resultSet = preparedStatement.getResultSet();
+        // 将resultSet中的数据存入到MapState中
+        while (resultSet.next()) {
+            String source_table = resultSet.getString("source_table");
+            String sink_table = resultSet.getString("sink_table");
+            String sink_pk = resultSet.getString("sink_pk");
+            String sink_columns = resultSet.getString("sink_columns");
+            String sink_extend = resultSet.getString("sink_extend");
+            initTable.put(source_table, new TableProcess(source_table, sink_table, sink_columns, sink_pk, sink_extend));
+
+        }
+
+        // 遍历initTable中的数据
+        /*for (Map.Entry<String, TableProcess> entry : initTable.entrySet()) {
+
+            // 获取表名
+            String tableName = entry.getKey();
+            mapState.put(tableName, new TableProcess());
+        }*/
     }
 
     /**
@@ -54,24 +83,18 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
     @Override
     public void processBroadcastElement(String value, BroadcastProcessFunction<JSONObject, String, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
 
-        // value数据示例（value的数据来自FlinkCDC）:
-        // {"before":null,
-        //  "after":{"source_table":"nn",
-        //           "sink_table":"qweq",
-        //           "sink_columns":"wqeqwe",
-        //           "sink_pk":"qweq",
-        //           "sink_extend":"qwewqe"},
-        //  "source":{"version":"1.5.2.Final","connector":"mysql","name":"mysql_binlog_source","ts_ms":1655696167000,
-        //            "snapshot":"false","db":"gmall-config","sequence":null,"table":"table_process","server_id":1,"gtid":null,
-        //            "file":"mysql-bin.000001","pos":2089,"row":0,"thread":null,"query":null},
-        //  "op":"c",
-        //  "ts_ms":1655696164292,
-        //  "transaction":null
-        // }
-
+        // value 中数据的格式(数据来自Kafka，由Kafka的上游maxwell封装)
+        //{"database":"gmall",
+        // "xid":4058,
+        // "data":{"tm_name":"欧莱雅","logo_url":"/static/default.jpg","id":2},
+        // "commit":true,
+        // "type":"insert",
+        // "table":"base_trademark",
+        // "ts":1592118957}
         // TODO 1、获取并解析数据为JavaBean对象
         JSONObject jsonObject = JSON.parseObject(value);
-        TableProcess tableProcess = JSON.parseObject(jsonObject.getString("after"), TableProcess.class);
+        TableProcess tableProcess = JSON.parseObject(jsonObject.getString("data"), TableProcess.class);
+        // System.out.println("==================="+tableProcess.getSinkPk());
 
         // TODO 2、校验表是否存在，如果不存在则建表
         // (表名,字段名,主键,建表扩展字段)
@@ -82,7 +105,17 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
         // TODO 3、将数据写入状态，广播出去
         String key = tableProcess.getSourceTable();
         BroadcastState<String, TableProcess> broadcastState = ctx.getBroadcastState(stateDescriptor);
+
+        for (Map.Entry<String, TableProcess> entry : initTable.entrySet()) {
+
+            // 获取表名
+            String tableName = entry.getKey();
+            TableProcess entryValue = entry.getValue();
+            broadcastState.put(tableName, entryValue);
+        }
         broadcastState.put(key, tableProcess);
+
+
     }
 
     /**
@@ -133,14 +166,16 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
 
             sql.append(")").append(sinkExtend);
 
+            // System.out.println("+++++++++++++++++++");
             System.out.println(sql);
+            // System.out.println("+++++++++++++++++++");
 
             //预编译SQL
             preparedStatement = connection.prepareStatement(sql.toString());
 
             //执行
             preparedStatement.execute();
-        } catch (SQLException e) {
+        } catch (Exception e) {
             throw new RuntimeException("建表" + sinkTable + "失败！");
         } finally {
             //资源释放
@@ -170,20 +205,21 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
     @Override
     public void processElement(JSONObject value, BroadcastProcessFunction<JSONObject, String, JSONObject>.ReadOnlyContext ctx, Collector<JSONObject> out) throws Exception {
 
+
         // 广播变量中的数据示例
         // "表名":"TableProcess"
 
         // value 中数据的格式(数据来自Kafka，由Kafka的上游maxwell封装)
         //{"database":"gmall",
-        // "table":"comment_info",
-        // "type":"insert",
-        // "ts":1592218584,
-        // "xid":13989,
+        // "xid":4058,
+        // "data":{"tm_name":"欧莱雅","logo_url":"/static/default.jpg","id":2},
         // "commit":true,
-        // "data":{"id":1538475781186916369,"user_id":172,"nick_name":null,"head_img":null,"sku_id":17,"spu_id":5,"order_id":5492,"appraise":"1201","comment_txt":"评论内容：58714193948455936187455631146252513178693575144261","create_time":"2020-06-15 18:56:24","operate_time":null}
-        // }
+        // "type":"insert",
+        // "table":"base_trademark",
+        // "ts":1592118957}
         // TODO 1、获取广播的配置数据（按照表名过滤）
         ReadOnlyBroadcastState<String, TableProcess> broadcastState = ctx.getBroadcastState(stateDescriptor);
+
         // 取出这个消息对应的表 所对应的 广播流 中的 value：tableProcess
         TableProcess tableProcess = broadcastState.get(value.getString("table"));
         // 取出这个消息对应的消息类型
@@ -193,11 +229,13 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
         // 另外删除数据的操作不需要，因为在mysql中删除的数据在以后在维度建模的时候肯定关联不到这个维度，所以不需要收集删除记录
         if (tableProcess != null && ("bootstrap-insert".equals(type) || "insert".equals(type) || "update".equals(type))) {
 
+
             // TODO 2、根据配置信息中 sinkColumns 字段过滤
             // 过滤掉不需要的字段，需要的字段在 sinkColumns 中,所以 filter 字段需要两个参数
             // 1、原始数据，value.data
             // 2、需要的字段，tableProcess.sinkColumns
             filter(value.getJSONObject("data"), tableProcess.getSinkColumns());
+
 
             // TODO 3、补充 SinkTable 字段输出
             // 要将数据写到phoenix中，要根据这个字段找到要写的phoenix表
@@ -205,6 +243,7 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
             out.collect(value);
 
         } else {
+            // System.out.println(tableProcess);
             // 不是我们需要的数据，过滤掉
             System.out.println("过滤掉：" + value);
         }
@@ -213,23 +252,23 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
     /**
      * 过滤数据
      *
-     * @param data          {"id":1,"tm_name","logo_url":"..."}
-     * @param sinkColumns   id,tm_name
-     * 数据过滤处理后          {"id":1,"tm_name"}
+     * @param data        {"id":1,"tm_name","logo_url":"..."}
+     * @param sinkColumns id,tm_name
+     *                    数据过滤处理后       {"id":1,"tm_name"}
      */
     private void filter(JSONObject data, String sinkColumns) {
-        // Iterator<Map.Entry<String, Object>> iterator = data.entrySet().iterator();
 
         String[] split = sinkColumns.split(",");
         List<String> columnsList = Arrays.asList(split);
 
-        /*while (iterator.hasNext()){
+        Iterator<Map.Entry<String, Object>> iterator = data.entrySet().iterator();
+        while (iterator.hasNext()) {
             Map.Entry<String, Object> next = iterator.next();
-            if (!columns.contains(next.getKey())){
+            if (!columnsList.contains(next.getKey())) {
                 iterator.remove();
             }
-        }*/
-        data.entrySet().removeIf(next -> !columnsList.contains(next.getKey()));
+        }
 
+        // data.entrySet().removeIf(next -> !columnsList.contains(next.getKey()));
     }
 }

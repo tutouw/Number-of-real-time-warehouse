@@ -17,14 +17,14 @@ import java.util.Properties;
 
 public class MyKafkaUtil {
     private static Properties properties = new Properties();
-    private static final String BOOTSTRAP_SERVERS = "192.168.10.101:9092";
+    private static String BOOTSTRAP_SERVERS = "192.168.10.101:9092";
 
     public static FlinkKafkaConsumer<String> getKafkaConsumer(String topic, String group_id) {
 
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, group_id);
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
-        // properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        // properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
 
         return new FlinkKafkaConsumer<String>(topic,
                 new KafkaDeserializationSchema<String>() {
