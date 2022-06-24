@@ -31,7 +31,6 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
 
     public TableProcessFunction(MapStateDescriptor<String, TableProcess> stateDescriptor) throws Exception {
         this.stateDescriptor = stateDescriptor;
-
     }
 
 
@@ -55,7 +54,6 @@ public class TableProcessFunction extends BroadcastProcessFunction<JSONObject, S
             String sink_columns = resultSet.getString("sink_columns");
             String sink_extend = resultSet.getString("sink_extend");
             initTable.put(source_table, new TableProcess(source_table, sink_table, sink_columns, sink_pk, sink_extend));
-
         }
 
         // 遍历initTable中的数据

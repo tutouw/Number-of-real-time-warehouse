@@ -4,9 +4,11 @@ import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.connectors.kafka.FlinkKafkaConsumer;
+import org.apache.flink.streaming.connectors.kafka.FlinkKafkaProducer;
 import org.apache.flink.streaming.connectors.kafka.KafkaDeserializationSchema;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.producer.ProducerConfig;
 
 import java.util.Properties;
 
@@ -16,15 +18,15 @@ import java.util.Properties;
  */
 
 public class MyKafkaUtil {
-    private static Properties properties = new Properties();
-    private static String BOOTSTRAP_SERVERS = "192.168.10.101:9092";
+
 
     public static FlinkKafkaConsumer<String> getKafkaConsumer(String topic, String group_id) {
-
+        Properties properties = new Properties();
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, group_id);
+        String BOOTSTRAP_SERVERS = "192.168.10.101:9092";
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
-        properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        // properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
+        // properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
 
         return new FlinkKafkaConsumer<String>(topic,
                 new KafkaDeserializationSchema<String>() {
@@ -48,5 +50,15 @@ public class MyKafkaUtil {
                     }
                 },
                 properties);
+    }
+
+    public static FlinkKafkaProducer<String> getFlinkKafkaProducer(String topicId){
+        Properties properties = new Properties();
+        String BOOTSTRAP_SERVERS = "hadoop101:9092,hadoop102:9092,hadoop103:9092";
+        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
+        // properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+        // properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
+
+        return new FlinkKafkaProducer<String>(topicId, new SimpleStringSchema(), properties);
     }
 }

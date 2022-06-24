@@ -40,7 +40,7 @@ public class DimApp {
         };
         SingleOutputStreamOperator<JSONObject> jsonObjDS = kafkaDS.process(new ProcessFunction<String, JSONObject>() {
             @Override
-            public void processElement(String value, ProcessFunction<String, JSONObject>.Context ctx, Collector<JSONObject> out) throws Exception {
+            public void processElement(String value, ProcessFunction<String, JSONObject>.Context ctx, Collector<JSONObject> out) {
                 try {
                     JSONObject jsonObject = JSON.parseObject(value);
                     out.collect(jsonObject);

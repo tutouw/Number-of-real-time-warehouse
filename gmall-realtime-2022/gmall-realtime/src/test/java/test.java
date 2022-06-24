@@ -9,7 +9,7 @@ import java.sql.SQLException;
 
 public class test {
     public static void main(String[] args) throws SQLException {
-        String url = "jdbc:phoenix:hadoop101,hadoop102,hadoop103";
-        Connection conn = DriverManager.getConnection(url);
+        staticTest.A();
+        staticTest.B();
     }
 }
