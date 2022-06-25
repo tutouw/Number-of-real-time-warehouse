@@ -11,6 +11,8 @@ import org.apache.flink.types.Row;
 import java.time.Duration;
 
 /**
+ * 交易域
+ * 加购事务事实表
  * @author Aaron
  * @date 2022/6/25 9:35
  */

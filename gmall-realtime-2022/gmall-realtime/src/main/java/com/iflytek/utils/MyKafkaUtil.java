@@ -27,8 +27,6 @@ public class MyKafkaUtil {
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, group_id);
         String BOOTSTRAP_SERVERS = "192.168.10.101:9092";
         properties.setProperty(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
-        // properties.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
-        // properties.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringDeserializer");
 
         return new FlinkKafkaConsumer<String>(topic,
                 new KafkaDeserializationSchema<String>() {
@@ -58,8 +56,6 @@ public class MyKafkaUtil {
         Properties properties = new Properties();
         String BOOTSTRAP_SERVERS = "hadoop101:9092,hadoop102:9092,hadoop103:9092";
         properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
-        // properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
-        // properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, "org.apache.kafka.common.serialization.StringSerializer");
 
         return new FlinkKafkaProducer<String>(topicId, new SimpleStringSchema(), properties);
     }
@@ -108,6 +104,4 @@ public class MyKafkaUtil {
                 "  'value.format' = 'json' " +
                 ")";
     }
-
-
 }

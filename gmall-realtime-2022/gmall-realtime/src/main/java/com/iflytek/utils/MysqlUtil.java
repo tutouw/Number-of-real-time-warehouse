@@ -9,7 +9,7 @@ package com.iflytek.utils;
 public class MysqlUtil {
     /**
      * 获取base_dic字典表的创建Lookup表的完整SQL
-     * @return
+     * @return 返回完整的创建base_dic的Lookup表的sql语句
      */
     public static String getBaseDicLookUpDDL() {
         return "create table `base_dic` ( " +

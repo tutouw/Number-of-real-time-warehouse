@@ -28,6 +28,9 @@ import java.util.Map;
 import static org.apache.flink.cep.pattern.Pattern.begin;
 
 /**
+ * 流量域
+ * 用户跳出事实表
+ *
  * @author Aaron
  * @date 2022/6/24 11:37
  */
@@ -73,7 +76,7 @@ public class DwdTrafficUserJumpDetail {
         //   "ts":1592193680000
         //  }
         Pattern<JSONObject, JSONObject> pattern = Pattern.<JSONObject>begin("first", AfterMatchSkipStrategy.skipToNext()).where(new SimpleCondition<JSONObject>() {
-        // Pattern<JSONObject, JSONObject> pattern = Pattern.<JSONObject>begin("first").where(new SimpleCondition<JSONObject>() {
+                    // Pattern<JSONObject, JSONObject> pattern = Pattern.<JSONObject>begin("first").where(new SimpleCondition<JSONObject>() {
                     @Override
                     public boolean filter(JSONObject value) throws Exception {
                         return value.getJSONObject("page").getString("last_page_id") == null;
@@ -90,7 +93,8 @@ public class DwdTrafficUserJumpDetail {
         PatternStream<JSONObject> patternStream = CEP.pattern(keyedByMidStream, pattern);
 
         // TODO 8、提取超时事件和匹配上的事件
-        OutputTag<JSONObject> timeoutTag = new OutputTag<JSONObject>("timeout"){};
+        OutputTag<JSONObject> timeoutTag = new OutputTag<JSONObject>("timeout") {
+        };
 
         SingleOutputStreamOperator<JSONObject> selectDS = patternStream.select(timeoutTag, new PatternTimeoutFunction<JSONObject, JSONObject>() {
             @Override

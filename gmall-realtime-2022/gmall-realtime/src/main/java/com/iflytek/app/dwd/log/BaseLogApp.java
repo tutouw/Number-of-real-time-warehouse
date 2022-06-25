@@ -19,6 +19,9 @@ import org.apache.flink.util.Collector;
 import org.apache.flink.util.OutputTag;
 
 /**
+ * 流量域
+ * 未加工事务事实表
+ *
  * @author Aaron
  * @date 2022/6/22 21:52
  */
@@ -216,7 +219,7 @@ public class BaseLogApp {
     }
 
     private static void Displays_Actions(ProcessFunction<JSONObject, String>.Context ctx, String page_id, Long ts, JSONObject common, JSONArray jsonArray, OutputTag<String> OutputTag) {
-        if (jsonArray!= null && jsonArray.size() > 0) {
+        if (jsonArray != null && jsonArray.size() > 0) {
             for (int i = 0; i < jsonArray.size(); i++) {
                 JSONObject JSONObject = jsonArray.getJSONObject(i);
                 // 放入数据

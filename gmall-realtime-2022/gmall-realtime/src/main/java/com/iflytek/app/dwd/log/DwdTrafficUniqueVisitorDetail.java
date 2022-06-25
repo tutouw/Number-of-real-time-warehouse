@@ -18,7 +18,8 @@ import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 
 /**
- * 独立访客明细
+ * 流量域
+ * 独立访客事实表
  *
  * @author Aaron
  * @date 2022/6/23 16:46
