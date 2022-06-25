@@ -20,6 +20,8 @@ import java.util.Properties;
 public class MyKafkaUtil {
 
 
+    private static final String BOOTSTRAP_SERVERS = "hadoop101:9092";
+
     public static FlinkKafkaConsumer<String> getKafkaConsumer(String topic, String group_id) {
         Properties properties = new Properties();
         properties.setProperty(ConsumerConfig.GROUP_ID_CONFIG, group_id);
@@ -52,7 +54,7 @@ public class MyKafkaUtil {
                 properties);
     }
 
-    public static FlinkKafkaProducer<String> getFlinkKafkaProducer(String topicId){
+    public static FlinkKafkaProducer<String> getFlinkKafkaProducer(String topicId) {
         Properties properties = new Properties();
         String BOOTSTRAP_SERVERS = "hadoop101:9092,hadoop102:9092,hadoop103:9092";
         properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, BOOTSTRAP_SERVERS);
@@ -61,4 +63,51 @@ public class MyKafkaUtil {
 
         return new FlinkKafkaProducer<String>(topicId, new SimpleStringSchema(), properties);
     }
+
+    /**
+     * Kafka-Source DDL 语句
+     *
+     * @param topic   数据源主题
+     * @param groupId 消费者组
+     * @return 拼接好的 Kafka 数据源 DDL 语句
+     */
+    public static String getKafkaDDL(String topic, String groupId) {
+
+        return " with ('connector' = 'kafka', " +
+                " 'topic' = '" + topic + "'," +
+                " 'properties.bootstrap.servers' = '" + BOOTSTRAP_SERVERS + "', " +
+                " 'properties.group.id' = '" + groupId + "', " +
+                " 'format' = 'json', " +
+                " 'scan.startup.mode' = 'group-offsets')";
+    }
+
+    public static String getTopicDbDDL(String groupId) {
+        return "CREATE TABLE gmall_db (" +
+                "  `database` String, " +
+                "  `table` String, " +
+                "  `type` String, " +
+                "  `data` Map<String,String>, " +
+                "  `old` Map<String,String>, " +
+                "  `pt` AS PROCTIME() " +
+                ")" + MyKafkaUtil.getKafkaDDL("gmall_db", groupId);
+    }
+
+    /**
+     * Kafka-Sink DDL 语句
+     *
+     * @param topic 输出到 Kafka 的目标主题
+     * @return 拼接好的 Kafka-Sink DDL 语句
+     */
+    public static String getUpsertKafkaDDL(String topic) {
+
+        return "WITH ( " +
+                "  'connector' = 'upsert-kafka', " +
+                "  'topic' = '" + topic + "', " +
+                "  'properties.bootstrap.servers' = '" + BOOTSTRAP_SERVERS + "', " +
+                "  'key.format' = 'json', " +
+                "  'value.format' = 'json' " +
+                ")";
+    }
+
+
 }

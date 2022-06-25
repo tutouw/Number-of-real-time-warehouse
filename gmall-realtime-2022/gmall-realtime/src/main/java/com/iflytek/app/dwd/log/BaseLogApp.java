@@ -24,7 +24,7 @@ import org.apache.flink.util.OutputTag;
  */
 
 // 数据流：web/app -> nginx -> 日志服务器(log) -> flume -> kafka(ODS) -> flinkApp -> kafka(DWD)
-// 程  序：                mock(lg.sh)      -> f1.sh(flume) -> kafka(zk) -> BaseLogApp -> kafka(zk)
+// 程  序：  mock(lg.sh) -> f1.sh(flume) -> kafka(zk) -> BaseLogApp -> kafka(zk)
 public class BaseLogApp {
     public static void main(String[] args) throws Exception {
         // TODO 1、获取执行环境
