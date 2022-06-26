@@ -2,17 +2,16 @@ package com.iflytek.app.dwd.db;
 
 import com.iflytek.utils.MyKafkaUtil;
 import com.iflytek.utils.MysqlUtil;
-import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.table.api.Table;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
-import org.apache.flink.types.Row;
 
 import java.time.Duration;
 
 /**
  * 交易域
  * 加购事务事实表
+ *
  * @author Aaron
  * @date 2022/6/25 9:35
  */

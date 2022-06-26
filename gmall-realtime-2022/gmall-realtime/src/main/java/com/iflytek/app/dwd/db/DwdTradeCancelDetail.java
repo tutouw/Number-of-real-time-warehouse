@@ -8,12 +8,13 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 
 /**
  * 交易域
- * 下单事务事实表
+ * 取消订单明细
+ *
  * @author Aaron
- * @date 2022/6/25 23:24
+ * @date 2022/6/26 7:03
  */
 
-public class DwdTradeOrderAdd {
+public class DwdTradeCancelDetail {
     public static void main(String[] args) throws Exception {
         // TODO 1、获取执行环境
         StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
@@ -28,7 +29,7 @@ public class DwdTradeOrderAdd {
         // env.getCheckpointConfig().setCheckpointTimeout(10000L);
         // env.getCheckpointConfig().setCheckpointStorage("hdfs:hadoop101:9000//xxx/xx");
 
-        // TODO 2、使用DDL方式读取Kafka dwd_trade_order_detail主题数据
+        // TODO 2、使用DDL方式消费Kafka 数据
         tableEnv.executeSql("" +
                 "create table dwd_trade_order_detail_table ( " +
                 "    `order_detail_id` string, " +
@@ -73,15 +74,15 @@ public class DwdTradeOrderAdd {
                 "    `coupon_use_id` string, " +
                 "    `coupon_create_time` string, " +
                 "    `dic_name` string " +
-                ") " + MyKafkaUtil.getKafkaDDL("dwd_trade_order_detail","dwd_trade_order_detail"));
+                ") " + MyKafkaUtil.getKafkaDDL("dwd_trade_order_detail","dwd_trade_cancel_detail"));
 
-        // TODO 3、过滤出下单记录
-        Table filterTable = tableEnv.sqlQuery("select * from dwd_trade_order_detail_table where `type`='insert'");
-        tableEnv.createTemporaryView("filter_table",filterTable);
+        // TODO 3、过滤出update数据，order_status为1003，并且old里面的order_status不为null
+        Table filterTable = tableEnv.sqlQuery("select * from dwd_trade_order_detail_table where `type`='update' and `order_status`='1003' and `old`['order_status'] is not null");
+        tableEnv.createTemporaryView("filter_table", filterTable);
 
-        // TODO 4、创建Kafka下单数据表
+        // TODO 4、创建Kafka取消订单表
         tableEnv.executeSql("" +
-                "create table dwd_trade_order_add_table( " +
+                "create table dwd_trade_order_cancel_table( " +
                 "    `order_detail_id` string, " +
                 "    `order_id` string, " +
                 "    `sku_id` string, " +
@@ -124,12 +125,12 @@ public class DwdTradeOrderAdd {
                 "    `coupon_use_id` string, " +
                 "    `coupon_create_time` string, " +
                 "    `dic_name` string " +
-                ") " + MyKafkaUtil.getKafkaDDL("dwd_trade_order_add",""));
+                ") " + MyKafkaUtil.getKafkaDDL("dwd_trade_order_cancel",""));
 
         // TODO 5、将数据写出
-        tableEnv.executeSql("insert into dwd_trade_order_add_table select * from filter_table").print();
+        tableEnv.executeSql("insert into dwd_trade_order_cancel_table select * from filter_table").print();
 
         // TODO 6、执行
-        env.execute("DwdTradeOrderAdd");
+        env.execute("DwdTradeCancelDetail");
     }
 }
