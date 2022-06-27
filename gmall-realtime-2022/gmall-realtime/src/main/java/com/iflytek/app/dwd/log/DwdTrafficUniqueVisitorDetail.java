@@ -93,7 +93,7 @@ public class DwdTrafficUniqueVisitorDetail {
         });
 
         // TODO 7、将数据写出到Kafka
-        // filterDistinctDS.print(">>>>>");
+        filterDistinctDS.print(">>>>>");
         // 我们写好的方法需要的是String类型，而我们提供的是JSONObject，所以需要先转换一下
         filterDistinctDS.map(JSONAware::toJSONString).addSink(MyKafkaUtil.getFlinkKafkaProducer("dwd_traffic_unique_visitor_detail"));
 
