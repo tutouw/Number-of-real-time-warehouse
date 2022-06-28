@@ -51,7 +51,7 @@ public class DwsTrafficPageViewWindow {
         // TODO 2、获取Kafka页面日志主题，创建流
         String topic = "dwd_traffic_page_log";
         String group_id = "dws_traffic_pageView_window";
-        DataStreamSource<String> pageViewDS = env.addSource(MyKafkaUtil.getKafkaConsumer("dwd_traffic_page_log", "dws_traffic_pageView_window"));
+        DataStreamSource<String> pageViewDS = env.addSource(MyKafkaUtil.getKafkaConsumer(topic, group_id));
 
         // TODO 3、将数据流转换成JSON格式
         // SingleOutputStreamOperator<JSONObject> jsonObjDS = pageViewDS.map(JSON::parseObject);
@@ -75,7 +75,7 @@ public class DwsTrafficPageViewWindow {
         });
 
         // TODO 5、提取事件时间生成watermark
-        SingleOutputStreamOperator<JSONObject> homeAndGoodDetailWithWMDS = homeAndGoodDetailDS.assignTimestampsAndWatermarks(WatermarkStrategy.<JSONObject>forBoundedOutOfOrderness(Duration.ofSeconds(2))
+        SingleOutputStreamOperator<JSONObject> homeAndGoodDetailWithWMDS = homeAndGoodDetailDS.assignTimestampsAndWatermarks(WatermarkStrategy.<JSONObject>forMonotonousTimestamps()
                 .withTimestampAssigner(new SerializableTimestampAssigner<JSONObject>() {
                     @Override
                     public long extractTimestamp(JSONObject element, long recordTimestamp) {

@@ -28,7 +28,7 @@ public class DateFormatUtil {
     }
 
     public static Long toTs(String dtStr) {
-        return toTs(dtStr, false);
+        return toTs(dtStr, true);
     }
 
     public static String toDate(Long ts) {
@@ -44,6 +44,6 @@ public class DateFormatUtil {
     }
 
     public static void main(String[] args) {
-        System.out.println(toYmdHms(System.currentTimeMillis()));
+        System.out.println(toTs("2020-06-23"));
     }
 }
