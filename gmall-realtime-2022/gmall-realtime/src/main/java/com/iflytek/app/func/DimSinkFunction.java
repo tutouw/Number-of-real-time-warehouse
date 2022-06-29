@@ -42,7 +42,7 @@ public class DimSinkFunction extends RichSinkFunction<JSONObject> {
         PreparedStatement preparedStatement = null;
         try {
             // 拼接SQL upsert into db.tn(id,tm_name) values ('12','test')
-            String upsertSql = genUsertSql(value.getString("sinkTable"), value.getJSONObject("data"));
+            String upsertSql = genUserSql(value.getString("sinkTable"), value.getJSONObject("data"));
 
             System.out.println(upsertSql);
             // 预编译SQL
@@ -68,7 +68,7 @@ public class DimSinkFunction extends RichSinkFunction<JSONObject> {
      * @param data      "tm_name":"欧莱雅","logo_url":"/static/default.jpg","id":2
      * @return          upsert into db.tn(id,tm_name) values ('12','test')
      */
-    private String genUsertSql(String sinkTable, JSONObject data) {
+    private String genUserSql(String sinkTable, JSONObject data) {
         Set<String> columns = data.keySet();
         Collection<Object> values = data.values();
 

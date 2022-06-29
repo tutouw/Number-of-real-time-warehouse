@@ -16,13 +16,15 @@ import org.apache.flink.streaming.api.functions.windowing.AllWindowFunction;
 import org.apache.flink.streaming.api.windowing.assigners.TumblingProcessingTimeWindows;
 import org.apache.flink.streaming.api.windowing.time.Time;
 import org.apache.flink.streaming.api.windowing.windows.TimeWindow;
-import org.apache.flink.streaming.runtime.operators.util.AssignerWithPeriodicWatermarksAdapter;
 import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 import org.apache.flink.util.Collector;
 
 import java.time.Duration;
 
 /**
+ * 用户域
+ * 用户注册各窗口汇总表
+ *
  * @author Aaron
  * @date 2022/6/28 18:37
  */
@@ -45,7 +47,7 @@ public class DwsUserUserRegisterWindow {
         DataStreamSource<String> pageViewDS = env.addSource(MyKafkaUtil.getKafkaConsumer(topic, group_id));
 
         // TODO 3、将数据转换为javaBean格式
-        SingleOutputStreamOperator<UserRegisterBean> userRegisterDS = pageViewDS.map(data -> new UserRegisterBean("", "", 1L,JSON.parseObject(data).getLong("ts")*1000));
+        SingleOutputStreamOperator<UserRegisterBean> userRegisterDS = pageViewDS.map(data -> new UserRegisterBean("", "", 1L, JSON.parseObject(data).getLong("ts") * 1000));
 
         // TODO 4、生成水位线
         SingleOutputStreamOperator<UserRegisterBean> userRegisterWithWMDS = userRegisterDS.assignTimestampsAndWatermarks(WatermarkStrategy.<UserRegisterBean>forMonotonousTimestamps()
