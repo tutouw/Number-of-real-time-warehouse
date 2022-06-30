@@ -43,10 +43,10 @@
         <name>hbase.wal.provider</name>
         <value>filesystem</value>
     </property>
-<!--    <property>
+    <property>
         <name>phoenix.schema.isNamespaceMappingEnabled</name>
         <value>true</value>
-    </property>-->
+    </property>
 
     <property>
         <name>phoenix.schema.mapSystemTablesToNamespace</name>

@@ -196,7 +196,7 @@ public class DwdTradeOrderDetail {
         DataStream<Row> rowDataStream = tableEnv.toChangelogStream(table);
         rowDataStream.print(">>>>>>>>");
 
-        // TODO 9、创建kafka upsert-kafka的表
+        // TODO 9、创建kafka upsert-kafka 的表
         tableEnv.executeSql("" +
                 "create table dwd_trade_order_detail_table( " +
                 "    `order_detail_id` string, " +

@@ -9,6 +9,7 @@ import org.apache.flink.table.api.bridge.java.StreamTableEnvironment;
 /**
  * 交易域
  * 下单事务事实表
+ *
  * @author Aaron
  * @date 2022/6/25 23:24
  */

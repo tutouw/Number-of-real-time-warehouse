@@ -55,7 +55,7 @@ public class DwsTrafficVcChArIsNewPageViewWindow {
         // TODO 3、将三个流统一格式 JavaBean 为了合并流的时候方便
 
         //  处理uj数据
-        SingleOutputStreamOperator<TrafficPageViewBean> trafficPageViewWithUjDS = uvStringDS.map(line -> {
+        SingleOutputStreamOperator<TrafficPageViewBean> trafficPageViewWithUjDS = ujStringDS.map(line -> {
             JSONObject jsonObject = JSON.parseObject(line);
             JSONObject common = jsonObject.getJSONObject("common");
 
@@ -85,7 +85,7 @@ public class DwsTrafficVcChArIsNewPageViewWindow {
         });
 
         //  处理page数据
-        SingleOutputStreamOperator<TrafficPageViewBean> trafficPageViewWithPageDS = uvStringDS.map(line -> {
+        SingleOutputStreamOperator<TrafficPageViewBean> trafficPageViewWithPageDS = pageStringDS.map(line -> {
             JSONObject jsonObject = JSON.parseObject(line);
             JSONObject common = jsonObject.getJSONObject("common");
             Long during_time = jsonObject.getJSONObject("page").getLong("during_time");

@@ -2,6 +2,8 @@ package com.iflytek.app.func;
 
 import com.alibaba.fastjson.JSONObject;
 import com.iflytek.common.GmallConfig;
+import com.iflytek.utils.DimUtil;
+import com.iflytek.utils.JedisUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
@@ -42,11 +44,18 @@ public class DimSinkFunction extends RichSinkFunction<JSONObject> {
         PreparedStatement preparedStatement = null;
         try {
             // 拼接SQL upsert into db.tn(id,tm_name) values ('12','test')
-            String upsertSql = genUserSql(value.getString("sinkTable"), value.getJSONObject("data"));
+            String sinkTable = value.getString("sinkTable");
+            JSONObject data = value.getJSONObject("data");
+            String upsertSql = genUserSql(sinkTable, data);
 
             System.out.println(upsertSql);
             // 预编译SQL
             preparedStatement = connection.prepareStatement(upsertSql);
+
+            // 如果当前操作为更新操作，则删除redis数据
+            if("update".equals(value.getString("type"))){
+                DimUtil.delDimInfo(sinkTable.toUpperCase(),data.getString("id"));
+            }
 
             // 执行写入操作
             boolean execute = preparedStatement.execute();

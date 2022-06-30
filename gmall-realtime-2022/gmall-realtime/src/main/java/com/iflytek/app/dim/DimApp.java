@@ -31,7 +31,7 @@ public class DimApp {
         // env.getCheckpointConfig().setCheckpointTimeout(10000L);
         // env.getCheckpointConfig().setCheckpointStorage("hdfs:hadoop101:9000//xxx/xx");
 
-        // TODO 2、读取kafka topic_db主题的数据创建流
+        // TODO 2、读取kafka gmall_db主题的数据创建流
         DataStreamSource<String> kafkaDS = env.addSource(MyKafkaUtil.getKafkaConsumer("gmall_db", "dim_app"));
         // kafkaDS.print("kafka");
 
